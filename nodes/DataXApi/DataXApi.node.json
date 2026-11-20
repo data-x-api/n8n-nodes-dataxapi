@@ -1,0 +1,18 @@
+{
+	"node": "n8n-nodes-dataxapi.dataXApi",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Marketing & Content", "Analytics"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/data-x-api/n8n-nodes-dataxapi#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/data-x-api/n8n-nodes-dataxapi#readme"
+			}
+		]
+	}
+}

@@ -1,0 +1,159 @@
+{
+  "name": "DataXAPI: competitor accounts' new posts to Slack or Feishu",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Competitor new posts to a chat webhook\nEvery 6 hours, reads the latest page of each account listed in **Accounts to watch** and posts the ones not seen before to a Slack incoming webhook.\n\nFor a Feishu (Lark) bot, change the body to `{\"msg_type\": \"text\", \"content\": {\"text\": ...}}`.\n\n**Cost:** 1 DataXAPI call per account per run; with 3 accounts that is 12 calls a day. Prices differ by platform: see each endpoint page at https://dataxapi.com/apis/",
+        "height": 300,
+        "width": 420
+      },
+      "id": "2ff18d7c-92ed-56a5-a8fb-f7f8578e3e9d",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "444674a0-b68a-5367-b452-67aef55d5054",
+      "name": "Every 6 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per account: the endpoint that lists its posts, and how it is named.\n// Find other endpoints with the DataXAPI node's Any Endpoint → Find (free).\nreturn [\n  { json: { endpoint: 'douyin.users.videos.list', params: { id: 'MS4wLjABAAAA_REPLACE_ME' } } },\n  { json: { endpoint: 'xiaohongshu.users.notes.list', params: { url: 'https://www.xiaohongshu.com/user/profile/REPLACE_ME' } } },\n  { json: { endpoint: 'tiktok.users.videos.list', params: { username: 'REPLACE_ME' } } },\n];"
+      },
+      "id": "b5a3a135-a7a9-578c-813f-406123562ba3",
+      "name": "Accounts to watch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "any",
+        "operation": "call",
+        "endpoint": "={{ $json.endpoint }}",
+        "parameters": "={{ JSON.stringify($json.params) }}",
+        "maxPages": 1,
+        "options": {},
+        "output": "items"
+      },
+      "id": "912587b3-6946-5bc2-8206-da8111331295",
+      "name": "Get account posts",
+      "type": "n8n-nodes-dataxapi.dataXApi",
+      "typeVersion": 1,
+      "position": [
+        440,
+        100
+      ],
+      "credentials": {
+        "dataXApiApi": {
+          "id": "",
+          "name": "DataXAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep only items not seen in earlier runs. Static data persists only when the\n// workflow is active (production runs), not in manual test runs.\nconst seen = $getWorkflowStaticData('global');\nseen.ids = seen.ids || [];\nconst known = new Set(seen.ids);\nconst fresh = $input.all().filter((item) => item.json.id && !known.has(item.json.id));\nseen.ids = [...seen.ids, ...fresh.map((item) => item.json.id)].slice(-2000);\nreturn fresh.map((item) => {\n  const p = item.json;\n  const who = (p.author && (p.author.name || p.author.username)) || 'An account';\n  const text = (p.title || p.text || '').slice(0, 200);\n  return { json: { text: `${who} posted: ${text}\\n${p.url || ''}` } };\n});"
+      },
+      "id": "9a412b8d-dd94-54c0-90e4-163491774571",
+      "name": "Keep new posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REPLACE/WITH/YOURS",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "60dc538b-4eda-5978-995a-08a58197df29",
+      "name": "Send to webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 6 hours": {
+      "main": [
+        [
+          {
+            "node": "Accounts to watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accounts to watch": {
+      "main": [
+        [
+          {
+            "node": "Get account posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get account posts": {
+      "main": [
+        [
+          {
+            "node": "Keep new posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep new posts": {
+      "main": [
+        [
+          {
+            "node": "Send to webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,159 @@
+{
+  "name": "DataXAPI: alert when comments mention a keyword",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Comment keyword alert\nEvery hour, reads the latest page of comments under each post in **Posts to watch**, and sends new comments containing any of your keywords to a webhook.\n\n**Cost:** 1 DataXAPI call per post per run; 2 posts hourly is 48 calls a day. Prices differ by platform: see each endpoint page at https://dataxapi.com/apis/",
+        "height": 300,
+        "width": 420
+      },
+      "id": "2ff18d7c-92ed-56a5-a8fb-f7f8578e3e9d",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "40fd4f9d-0e0d-5b62-bfd2-93e5fcf5ec24",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per post: the endpoint that lists its comments, and the post's ID or link.\nreturn [\n  { json: { endpoint: 'douyin.videos.comments.list', params: { id: 'REPLACE_WITH_VIDEO_ID' } } },\n  { json: { endpoint: 'wechat_mp.articles.comments.list', params: { url: 'https://mp.weixin.qq.com/s/REPLACE_ME' } } },\n];"
+      },
+      "id": "ff5c0cae-9124-5593-ab9c-38536a8a6184",
+      "name": "Posts to watch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "any",
+        "operation": "call",
+        "endpoint": "={{ $json.endpoint }}",
+        "parameters": "={{ JSON.stringify($json.params) }}",
+        "maxPages": 1,
+        "options": {},
+        "output": "items"
+      },
+      "id": "9a947bc4-3de5-542a-b5fe-c95a4792fddc",
+      "name": "Get comments",
+      "type": "n8n-nodes-dataxapi.dataXApi",
+      "typeVersion": 1,
+      "position": [
+        440,
+        100
+      ],
+      "credentials": {
+        "dataXApiApi": {
+          "id": "",
+          "name": "DataXAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keywords in any language; matching ignores case.\nconst keywords = ['broken', 'scam', 'fake', 'too expensive'];\n// Keep only items not seen in earlier runs. Static data persists only when the\n// workflow is active (production runs), not in manual test runs.\nconst seen = $getWorkflowStaticData('global');\nseen.ids = seen.ids || [];\nconst known = new Set(seen.ids);\nconst fresh = $input.all().filter((item) => item.json.id && !known.has(item.json.id));\nseen.ids = [...seen.ids, ...fresh.map((item) => item.json.id)].slice(-2000);\nreturn fresh\n  .filter((item) => keywords.some((k) => (item.json.text || '').toLowerCase().includes(k.toLowerCase())))\n  .map((item) => {\n    const c = item.json;\n    const who = (c.author && (c.author.name || c.author.username)) || 'Someone';\n    return { json: { text: `Comment alert: ${who}: ${(c.text || '').slice(0, 300)}` } };\n  });"
+      },
+      "id": "05805f31-eb36-513b-b605-ce72a482058d",
+      "name": "Match keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REPLACE/WITH/YOURS",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "89e2a13a-f12c-59f2-811f-91f038ff8d56",
+      "name": "Send alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Posts to watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Posts to watch": {
+      "main": [
+        [
+          {
+            "node": "Get comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get comments": {
+      "main": [
+        [
+          {
+            "node": "Match keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match keywords": {
+      "main": [
+        [
+          {
+            "node": "Send alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

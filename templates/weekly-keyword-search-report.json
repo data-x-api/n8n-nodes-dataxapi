@@ -1,0 +1,162 @@
+{
+  "name": "DataXAPI: weekly keyword search report",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Weekly keyword report\nEvery Monday at 9:00, searches each keyword on its platform for posts from the past week, ranked by likes, and sends the top 5 per keyword to a webhook.\n\n**Cost:** 1 DataXAPI call per keyword per run; 3 keywords is 3 calls a week. Prices differ by platform: see each endpoint page at https://dataxapi.com/apis/",
+        "height": 300,
+        "width": 420
+      },
+      "id": "2ff18d7c-92ed-56a5-a8fb-f7f8578e3e9d",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "cc036e46-6ea3-558c-a386-101b5302fd15",
+      "name": "Every Monday at 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per search: the endpoint, the keyword, and the order and time filters it takes.\nreturn [\n  { json: { endpoint: 'douyin.videos.search', params: { query: 'cold brew', sort: 'popular', published_within: 'week' } } },\n  { json: { endpoint: 'xiaohongshu.notes.search', params: { query: 'cold brew', sort: 'popular', published_within: 'week' } } },\n  { json: { endpoint: 'wechat.posts.search', params: { query: 'cold brew', sort: 'popular', published_within: 'week' } } },\n];"
+      },
+      "id": "8c4779e1-ee52-5c23-b785-271ea8750db7",
+      "name": "Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "any",
+        "operation": "call",
+        "endpoint": "={{ $json.endpoint }}",
+        "parameters": "={{ JSON.stringify($json.params) }}",
+        "maxPages": 1,
+        "options": {},
+        "output": "pages"
+      },
+      "id": "44a42137-1ddf-5f52-a7d6-0147081bfc39",
+      "name": "Search posts",
+      "type": "n8n-nodes-dataxapi.dataXApi",
+      "typeVersion": 1,
+      "position": [
+        440,
+        100
+      ],
+      "credentials": {
+        "dataXApiApi": {
+          "id": "",
+          "name": "DataXAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const lines = [];\nfor (const page of $input.all()) {\n  const { endpoint, params } = page.json;\n  const items = (page.json.data && page.json.data.items) || [];\n  const top = items\n    .slice()\n    .sort((a, b) => ((b.metrics && b.metrics.likes) || 0) - ((a.metrics && a.metrics.likes) || 0))\n    .slice(0, 5);\n  lines.push(`*${params.query}* (${endpoint.split('.')[0]})`);\n  for (const p of top) {\n    lines.push(`- ${(p.title || p.text || '').slice(0, 80)} (${(p.metrics && p.metrics.likes) || 0} likes) ${p.url || ''}`);\n  }\n}\nreturn [{ json: { text: lines.join('\\n') } }];"
+      },
+      "id": "d678e4ef-5f69-5ce8-959d-5583a8ad5d38",
+      "name": "Build report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REPLACE/WITH/YOURS",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: $json.text }) }}",
+        "options": {}
+      },
+      "id": "34bb7606-5bd7-5997-834c-da571dff4e15",
+      "name": "Send report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every Monday at 9:00": {
+      "main": [
+        [
+          {
+            "node": "Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keywords": {
+      "main": [
+        [
+          {
+            "node": "Search posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search posts": {
+      "main": [
+        [
+          {
+            "node": "Build report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report": {
+      "main": [
+        [
+          {
+            "node": "Send report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

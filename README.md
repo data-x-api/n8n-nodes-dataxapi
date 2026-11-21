@@ -10,7 +10,9 @@ Source: <https://github.com/data-x-api/n8n-nodes-dataxapi> · Contact: support@d
 
 ## Installation
 
-In n8n, open **Settings → Community Nodes → Install** and enter `n8n-nodes-dataxapi`. See the [community nodes guide](https://docs.n8n.io/integrations/community-nodes/installation/).
+In n8n, open **Settings → Community Nodes → Install** and enter `n8n-nodes-dataxapi`.
+
+> The package is not on npm yet, so this install does not work until it is. Until then, call the API from n8n's HTTP Request node: `GET https://api.dataxapi.com/v1/<path>` with the header `Authorization: Bearer <your key>` (paths and prices: https://dataxapi.com/apis/). See the [community nodes guide](https://docs.n8n.io/integrations/community-nodes/installation/).
 
 ## Credentials
 

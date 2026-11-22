@@ -1,4 +1,4 @@
-// Written by scripts/generate-operations.mjs from DataXAPI's catalog 720fc3ea8dadb865, price book 19.
+// Written by scripts/generate-operations.mjs from DataXAPI's catalog dc959672dd18e2d0, price book 21.
 // Do not edit by hand: run the script again.
 
 import type { Operation, Resource } from './types';
